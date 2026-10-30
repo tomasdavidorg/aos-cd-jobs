@@ -11,7 +11,10 @@ node {
         Excludes MicroShift and transitions QE advisories only. Elliott then
         verifies all active advisories have progressed beyond QE.
         Requires verify-release-success on the shipment MR and adds
-        advisory-transition-success after successful processing.
+        advisory-transition-success after successful processing. All failures
+        are terminal for automatic scans. Remove advisory-transition-fail to
+        authorize retry; inspect and manually clear stale in-progress labels
+        only after draining aborted, skipped-lock, or unrecorded work.
     """)
 
     properties([
@@ -25,6 +28,12 @@ node {
                 commonlib.dryrunParam(),
                 commonlib.mockParam(),
                 string(
+                    name: 'SHIPMENT_MR_IID',
+                    description: 'Originating shipment MR IID (positive integer, required)',
+                    defaultValue: "",
+                    trim: true,
+                ),
+                string(
                     name: 'ASSEMBLY',
                     description: 'Assembly whose advisories should move to REL_PREP (e.g. 4.22.9)',
                     defaultValue: "",
@@ -36,6 +45,9 @@ node {
     commonlib.checkMock()
     if (!params.ASSEMBLY) {
         error("ASSEMBLY is required")
+    }
+    if (!(params.SHIPMENT_MR_IID ==~ /[1-9][0-9]*/)) {
+        error("SHIPMENT_MR_IID must be a positive integer")
     }
 
     try {
@@ -60,12 +72,13 @@ node {
                         "verify-advisory-transition",
                         "--version=${params.BUILD_VERSION}",
                         "--assembly=${params.ASSEMBLY}",
+                        "--shipment-mr-iid=${params.SHIPMENT_MR_IID}",
                     ]
                     withCredentials([
                         string(credentialsId: 'art-bot-jenkins-gitlab', variable: 'GITLAB_TOKEN'),
                     ]) {
                         echo "Will run: ${cmd.join(' ')}"
-                        sh(script: cmd.join(' '))
+                        sh(script: cmd.collect { "'" + it.replace("'", "'\"'\"'") + "'" }.join(' '))
                     }
                 }
             }

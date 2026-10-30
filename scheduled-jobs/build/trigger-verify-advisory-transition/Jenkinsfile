@@ -7,7 +7,10 @@ node() {
     commonlib.describeJob("trigger-verify-advisory-transition", """
         Scan GitLab shipment MRs in all states with verify-release-success,
         but without advisory-transition-success, and trigger verify-advisory-transition
-        for each eligible assembly. Configure the timer in Jenkins.
+        for each eligible assembly. Reserves attempts before enqueueing and
+        skips success, failure, and in-progress labels. Failures require manual
+        reset; aborted or unrecorded runs retain their reservation for recovery.
+        Configure the timer in Jenkins; keep this scanner serialized.
     """)
 
     properties([
